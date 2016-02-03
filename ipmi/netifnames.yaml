@@ -1,0 +1,106 @@
+hw_server_list:
+  cz0001.com:
+    lab: support_lab1
+    nics:
+      0c:c4:7a:17:8e:ba:
+        b_name: enp3s0f0
+        e_name: eth0
+      0c:c4:7a:17:8e:bb:
+        b_name: enp3s0f1
+        e_name: eth1
+      0c:c4:7a:50:2e:d8:
+        b_name: enp5s0f0
+        e_name: eth2
+      0c:c4:7a:50:2e:d9:
+        b_name: enp5s0f1
+        e_name: eth3
+      0c:c4:7a:50:2e:da:
+        b_name: enp5s0f2
+        e_name: eth4
+      0c:c4:7a:50:2e:db:
+        b_name: enp5s0f3
+        e_name: eth5
+  cz0002.com:
+    lab: support_lab1
+    nics:
+      0c:c4:7a:17:99:5c:
+        b_name: enp3s0f0
+        e_name: eth0
+      0c:c4:7a:17:99:5d:
+        b_name: enp3s0f1
+        e_name: eth1
+      0c:c4:7a:50:38:e0:
+        b_name: enp5s0f0
+        e_name: eth2
+      0c:c4:7a:50:38:e1:
+        b_name: enp5s0f1
+        e_name: eth3
+      0c:c4:7a:50:38:e2:
+        b_name: enp5s0f2
+        e_name: eth4
+      0c:c4:7a:50:38:e3:
+        b_name: enp5s0f3
+        e_name: eth5
+  cz0003.com:
+    lab: support_lab1
+    nics:
+      0c:c4:7a:15:f8:00:
+        b_name: enp3s0f0
+        e_name: eth0
+      0c:c4:7a:15:f8:01:
+        b_name: enp3s0f1
+        e_name: eth1
+      0c:c4:7a:50:3d:e4:
+        b_name: enp5s0f0
+        e_name: eth2
+      0c:c4:7a:50:3d:e5:
+        b_name: enp5s0f1
+        e_name: eth3
+      0c:c4:7a:50:3d:e6:
+        b_name: enp5s0f2
+        e_name: eth4
+      0c:c4:7a:50:3d:e7:
+        b_name: enp5s0f3
+        e_name: eth5
+  cz0004.com:
+    lab: support_lab1
+    nics:
+      0c:c4:7a:17:8e:ea:
+        b_name: enp3s0f0
+        e_name: eth0
+      0c:c4:7a:17:8e:eb:
+        b_name: enp3s0f1
+        e_name: eth1
+      0c:c4:7a:50:3d:34:
+        b_name: enp5s0f0
+        e_name: eth2
+      0c:c4:7a:50:3d:35:
+        b_name: enp5s0f1
+        e_name: eth3
+      0c:c4:7a:50:3d:36:
+        b_name: enp5s0f2
+        e_name: eth4
+      0c:c4:7a:50:3d:37:
+        b_name: enp5s0f3
+        e_name: eth5
+  cz0005.com:
+    lab: support_lab1
+    nics:
+      0c:c4:7a:17:90:f6:
+        b_name: enp3s0f0
+        e_name: eth0
+      0c:c4:7a:17:90:f7:
+        b_name: enp3s0f1
+        e_name: eth1
+      0c:c4:7a:50:3d:c0:
+        b_name: enp5s0f0
+        e_name: eth2
+      0c:c4:7a:50:3d:c1:
+        b_name: enp5s0f1
+        e_name: eth3
+      0c:c4:7a:50:3d:c2:
+        b_name: enp5s0f2
+        e_name: eth4
+      0c:c4:7a:50:3d:c3:
+        b_name: enp5s0f3
+        e_name: eth5

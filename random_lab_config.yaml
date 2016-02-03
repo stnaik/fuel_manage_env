@@ -1,0 +1,151 @@
+---
+fuel-master: "127.0.0.1"
+# simple \ hw_pin
+assign_method: "simple"
+######################################################################
+cluster:
+  mode: "ha_compact"
+  release_id: 2
+  net_provider: "neutron"
+  net_segment_type: "vlan"
+  name: "lab4-support_mos8"
+attributes:
+  additional_components:
+    sahara: false
+    murano: false
+    ceilometer: false
+  common:
+    libvirt_type: "kvm"
+  public_network_assignment:
+    assign_to_all_nodes: true
+  provision:
+    method: "image"
+nets:
+  public:
+    ip_ranges:
+      -
+        - "172.16.43.228"
+        - "172.16.43.234"
+    cidr: "172.16.43.128/25"
+    vlan_start: 387
+    gateway: "172.16.43.129"
+  management:
+    ip_ranges:
+      -
+        - "10.20.14.10"
+        - "10.20.14.50"
+    cidr: "10.20.14.0/24"
+    vlan_start: 386
+  storage:
+    ip_ranges:
+      -
+        - "10.30.14.10"
+        - "10.30.14.50"
+    cidr: "10.30.14.0/24"
+    vlan_start: 388
+networking_parameters:
+  floating_ranges:
+    -
+      - "172.16.43.235"
+      - "172.16.43.254"
+  internal_cidr: "192.168.111.0/24"
+  internal_gateway: "192.168.111.1"
+  vlan_range:
+    - 3361
+    - 3390
+  segmentation_type: "vlan"
+  ######################################################################
+default_compute_phys: &default_compute_phys
+  enp3s0f0:
+    type: "ether"
+    assigned_networks:
+      - "fuelweb_admin"
+  enp3s0f1:
+    type: "ether"
+    assigned_networks:
+      - "management"
+default_compute_virt: &default_compute_virt
+  bond0:
+    type: "bond"
+    assigned_networks:
+      - "private"
+      - "public"
+    slaves:
+      -
+        name: "enp5s0f0"
+      -
+        name: "enp5s0f1"
+    mode: "802.3ad"
+    bond_properties:
+      lacp_rate: "fast"
+      mode: "802.3ad"
+      type__: "linux"
+      xmit_hash_policy: "layer3+4"
+  bond1:
+    type: "bond"
+    assigned_networks:
+      - "storage"
+    slaves:
+      -
+        name: "enp5s0f2"
+      -
+        name: "enp5s0f3"
+    mode: "active-backup"
+    bond_properties:
+      mode: "active-backup"
+####
+default_controller_phys: &default_controller_phys
+  enp3s0f0:
+    type: "ether"
+    assigned_networks:
+      - "fuelweb_admin"
+  enp3s0f1:
+    type: "ether"
+    assigned_networks:
+      - "management"
+default_controller_virt: &default_controller_virt
+  bond0:
+    type: "bond"
+    assigned_networks:
+      - "private"
+      - "public"
+    slaves:
+      -
+        name: "enp5s0f0"
+      -
+        name: "enp5s0f1"
+    mode: "802.3ad"
+    bond_properties:
+      lacp_rate: "fast"
+      mode: "802.3ad"
+      type__: "linux"
+      xmit_hash_policy: "layer3+4"
+  bond1:
+    type: "bond"
+    assigned_networks:
+      - "storage"
+    slaves:
+      -
+        name: "enp5s0f2"
+      -
+        name: "enp5s0f3"
+    mode: "active-backup"
+    bond_properties:
+      mode: "active-backup"
+######################################################################
+roller:
+  controller:
+    l3_ifaces:
+      phys_nic_map: *default_controller_phys
+      virt_nic_map: *default_controller_virt
+    roles:
+      - controller
+    count: 3
+  compute:
+    l3_ifaces:
+      phys_nic_map: *default_compute_phys
+      virt_nic_map: *default_compute_virt
+    roles:
+      - compute
+      - cinder
+    count: 1
