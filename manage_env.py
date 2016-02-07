@@ -303,17 +303,21 @@ def simple_pin_nw_to_node(node_orig, node_ifs, roller):
 
         for nic in ifs:
             if nic['name'] not in expect_nic_names:
-                LOG.warning('Interface:{0} from config,'
-                            'not found on node:{1}'.format(nic['name'],
-                                                           node['name']))
-                return ifs
-            # we need to push { id : name } structure
-            assigned_nws = []
-            for assigned_nw in phys_nic_map[nic['name']].get(
-                    'assigned_networks', []):
-                assigned_nws.append({'id': nw_ids_dict[assigned_nw],
-                                     'name': assigned_nw})
-            nic['assigned_networks'] = assigned_nws
+                LOG.warning('Interface:{0} from node,'
+                            'not found on phys-node-config:{1}'.format(
+                    nic['name'], node['name']))
+                # remove all networks from this IF. We hope, that someone push
+                # them from config to other nic...otherwise - error will
+                # be raised.
+                nic['assigned_networks'] = []
+            else:
+                # we need to push { id : name } structure
+                assigned_nws = []
+                for assigned_nw in phys_nic_map[nic['name']].get(
+                        'assigned_networks', []):
+                    assigned_nws.append({'id': nw_ids_dict[assigned_nw],
+                                         'name': assigned_nw})
+                nic['assigned_networks'] = assigned_nws
         return ifs
 
     def virt_assigh(virt_nic_map, ifs):
@@ -323,7 +327,6 @@ def simple_pin_nw_to_node(node_orig, node_ifs, roller):
         :param ifs:
         :return:
         """
-
         LOG.info('Attempt to create virt nic assign')
         for bond in virt_nic_map:
             assigned_nws = []
@@ -387,17 +390,21 @@ def strict_pin_nw_to_node(node_orig, node_ifs, lab_config):
 
         for nic in ifs:
             if nic['name'] not in expect_nic_names:
-                LOG.warning('Interface:{0} from config,'
-                            'not found on node:{1}'.format(nic['name'],
-                                                           node['name']))
-                return ifs
-            # we need to push { id : name } structure
-            assigned_nws = []
-            for assigned_nw in phys_nic_map[nic['name']].get(
-                    'assigned_networks', []):
-                assigned_nws.append({'id': nw_ids_dict[assigned_nw],
-                                     'name': assigned_nw})
-            nic['assigned_networks'] = assigned_nws
+                LOG.warning('Interface:{0} from node,'
+                            'not found on phys-node-config:{1}'.format(
+                    nic['name'], node['name']))
+                # remove all networks from this IF. We hope, that someone push
+                # them from config to other nic...otherwise - error will
+                # be raised.
+                nic['assigned_networks'] = []
+            else:
+                # we need to push { id : name } structure
+                assigned_nws = []
+                for assigned_nw in phys_nic_map[nic['name']].get(
+                        'assigned_networks', []):
+                    assigned_nws.append({'id': nw_ids_dict[assigned_nw],
+                                         'name': assigned_nw})
+                nic['assigned_networks'] = assigned_nws
         return ifs
 
     def virt_assigh(virt_nic_map, ifs):
@@ -407,7 +414,6 @@ def strict_pin_nw_to_node(node_orig, node_ifs, lab_config):
         :param ifs:
         :return:
         """
-
         LOG.info('Attempt to create virt nic assign')
         for bond in virt_nic_map:
             assigned_nws = []
