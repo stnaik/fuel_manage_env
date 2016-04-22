@@ -27,7 +27,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s %(filename)s:'
 console.setFormatter(formatter)
 LOG = logging.getLogger(__name__)
 LOG.addHandler(console)
-pp = pprint.PrettyPrinter(indent=1, width=80, depth=None)
+pprinter = pprint.PrettyPrinter(indent=1, width=80, depth=None)
 
 # Input params:
 CLUSTER_CONFIG = os.environ.get("CLUSTER_CONFIG", "test_lab.yaml")
@@ -46,7 +46,7 @@ client = NailgunClient(lab_config["fuel-master"])
 ##################################
 # versions workaround
 f_release = client.get_api_version()['release']
-LOG.info('Fuel-version: \n%s' % pp.pformat(client.get_api_version()))
+LOG.info('Fuel-version: \n%s' % pprinter.pformat(client.get_api_version()))
 if float(f_release[:3]) < 6:
     api_cluster_id = "cluster_id"
 else:
@@ -86,9 +86,10 @@ def remove_env(admin_node_ip, env_name, dont_wait_for_nodes=True):
         return "OK"
 
     # wait for cluster to disappear
-    for i in range(60):
+    rerty_c = 120
+    for i in range(rerty_c):
         cluster_id = client.get_cluster_id(env_name)
-        LOG.info('Wait for cluster to disappear...try %s' % i)
+        LOG.info('Wait for cluster to disappear...try %s /%s' % (i, rerty_c))
         if cluster_id:
             time.sleep(10)
         else:
@@ -483,10 +484,10 @@ if __name__ == '__main__':
     assign_method = lab_config.get('assign_method', 'simple')
 
     # remove cluster, and create new
-    if not test_mode:
-        remove_env(lab_config["fuel-master"], lab_config["cluster"]["name"])
-        LOG.info('Creating cluster with:{0}'.format(lab_config["cluster"]))
-        client.create_cluster(data=lab_config["cluster"])
+    remove_env(lab_config["fuel-master"], lab_config["cluster"]["name"])
+    LOG.info('Creating cluster with:{0}'.format(
+        pprinter.pformat(lab_config["cluster"])))
+    client.create_cluster(data=lab_config["cluster"])
 
     # update network and attributes
     cluster_id = client.get_cluster_id(lab_config["cluster"]["name"])
@@ -528,7 +529,7 @@ if __name__ == '__main__':
         cluster_attributes['editable']['repo_setup']['repos']['value'] = \
             lab_config['repos']['value']
         LOG.info('Section: repos was successfully replaced with \n%s\n ' % \
-                 pp.pformat(lab_config['repos']['value']))
+                 pprinter.pformat(lab_config['repos']['value']))
     except KeyError as e:
         LOG.warn('Section: %s not found in %s ' % (e.message, CLUSTER_CONFIG))
 
