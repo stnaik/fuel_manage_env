@@ -6,18 +6,10 @@ Manage_env.py
 Simple script, to perform pining HW node to different network and env schema.
 Useful for auto-deployment on real hardware.
 
-Modules for run:
-~~~~~~~~~~~~~~~~
-
-#. fuel-qa_
-#. fuel-devops_
-
-.. _fuel-qa: https://github.com/openstack/fuel-qa
-.. _fuel-devops: https://github.com/openstack/fuel-devops
 
 Strict lab config:
 ~~~~~~~~~~~~~~~~~~
-File: strict_lab_config.yaml
+File: conf_samples/conf_lab_strict.yaml
 
 .. code-block:: yaml
 
@@ -39,7 +31,7 @@ File: strict_lab_config.yaml
 
 Simple lab config:
 ~~~~~~~~~~~~~~~~~~
-File: random_lab_config.yaml
+File: conf_samples/conf_lab_random.yaml
 
 .. code-block:: yaml
 

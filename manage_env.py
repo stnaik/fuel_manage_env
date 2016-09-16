@@ -1,48 +1,26 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
-####
-# apt-get install python-yaml python-paramiko \
-#  python-ipaddr python-proboscis python-keystoneclient
-###
-
-# ADDD:
-'''
-Script works at least with fuel 7\8
-'''
-
-import yaml
 import os
 import sys
-import ipdb
+import yaml
 import time
 import pprint
-import logging
-from fuelweb_test.models.nailgun_client import NailgunClient
-####
 
-console = logging.StreamHandler()
-console.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s %(filename)s:'
-                              '%(lineno)d -- %(message)s')
-console.setFormatter(formatter)
-LOG = logging.getLogger(__name__)
-LOG.addHandler(console)
+from helpers.nailgun import NailgunClient
+from helpers.tools import logger as LOG
+import settings
+
+
 pprinter = pprint.PrettyPrinter(indent=1, width=80, depth=None)
 
-# Input params:
-CLUSTER_CONFIG = os.environ.get("CLUSTER_CONFIG", "test_lab.yaml")
-
-# optional
-START_DEPLOYMENT = os.environ.get("START_DEPLOYMENT", "false")
-UPLOAD_DEPLOYMENT_INFO = os.environ.get("UPLOAD_DEPLOYMENT_INFO", "false")
-IPMI_CONFIGS = os.environ.get("IPMI_CONFIGS", "ipmi/netifnames.yaml")
 # debug (don't use it!)
 test_mode = False
 
-LOG.info('Try load: %s' % (CLUSTER_CONFIG))
-lab_config = yaml.load(open(CLUSTER_CONFIG))
+LOG.info('Try load: %s' % (settings.CLUSTER_CONFIG))
+lab_config = yaml.load(open(settings.CLUSTER_CONFIG))
 
-client = NailgunClient(lab_config["fuel-master"])
+client = NailgunClient(lab_config["fuel-master"], keystone_creds=settings.KEYSTONE_CREDS)
+
 ##################################
 # versions workaround
 f_release = client.get_api_version()['release']
@@ -54,7 +32,7 @@ else:
 ###################################
 
 
-def fetch_hw_data(config_yaml=IPMI_CONFIGS):
+def fetch_hw_data(config_yaml=settings.IPMI_CONFIGS):
     """
 
     :param IPMI_CONFIGS:
@@ -72,7 +50,7 @@ def fetch_hw_data(config_yaml=IPMI_CONFIGS):
 def remove_env(admin_node_ip, env_name, dont_wait_for_nodes=True):
 
     LOG.info('Removing cluster with name:{0}'.format(env_name))
-    client = NailgunClient(admin_node_ip)
+    client = NailgunClient(admin_node_ip, keystone_creds=settings.KEYSTONE_CREDS)
     cluster_id = client.get_cluster_id(env_name)
     all_nodes = []
 
@@ -254,7 +232,7 @@ def simple_pin_nodes_to_cluster(all_nodes, roller):
     compute_counter = 0
     LOG.info('Simple(random) node assign to cluster chosen')
     for node in all_nodes:
-        if node['cluster'] == None and (
+        if node['cluster'] is None and (
                     ctrl_counter < roller['controller']['count']):
             node_data = {api_cluster_id: cluster_id,
                          'id': node['id'],
@@ -264,7 +242,7 @@ def simple_pin_nodes_to_cluster(all_nodes, roller):
                          }
             ctrl_counter += 1
             nodes_data.append(node_data)
-        elif node['cluster'] == None and (
+        elif node['cluster'] is None and (
                     compute_counter < roller['compute']['count']):
             node_data = {api_cluster_id: cluster_id,
                          'id': node['id'],
@@ -476,24 +454,24 @@ def strict_pin_node_to_cluster(node_orig, lab_config):
                 node['id'], cluster['cluster_id'], cluster['name']))
         return None
 
-############################################################
-############################################################
+########################################################################################################################
+########################################################################################################################
 
 if __name__ == '__main__':
+    import ipdb; ipdb.set_trace()
+    # pydevd.settrace('localhost', port=56342, stdoutToServer=True, stderrToServer=True)
 
-    assign_method = lab_config.get('assign_method', 'simple')
-
+    #-------------------------------------------------------------------------------------------------------------------
     # remove cluster, and create new
     remove_env(lab_config["fuel-master"], lab_config["cluster"]["name"])
-    LOG.info('Creating cluster with:{0}'.format(
-        pprinter.pformat(lab_config["cluster"])))
+    LOG.info('Creating cluster with:{0}'.format(pprinter.pformat(lab_config["cluster"])))
     client.create_cluster(data=lab_config["cluster"])
 
+    #-------------------------------------------------------------------------------------------------------------------
     # update network and attributes
     cluster_id = client.get_cluster_id(lab_config["cluster"]["name"])
     if cluster_id is None:
-        LOG.error(
-            'Cluster with name %s not found!' % (lab_config["cluster"]["name"]))
+        LOG.error('Cluster with name %s not found!' % (lab_config["cluster"]["name"]))
         sys.exit(1)
 
     cluster_attributes = client.get_cluster_attributes(cluster_id)
@@ -531,7 +509,7 @@ if __name__ == '__main__':
         LOG.info('Section: repos was successfully replaced with \n%s\n ' % \
                  pprinter.pformat(lab_config['repos']['value']))
     except KeyError as e:
-        LOG.warn('Section: %s not found in %s ' % (e.message, CLUSTER_CONFIG))
+        LOG.warn('Section: %s not found in %s ' % (e.message, settings.CLUSTER_CONFIG))
 
     client.update_cluster_attributes(cluster_id, cluster_attributes)
 
@@ -543,10 +521,12 @@ if __name__ == '__main__':
         client.update_network(cluster_id, networking_parameters=cluster_net[
             "networking_parameters"], networks=cluster_net["networks"])
 
+    #-------------------------------------------------------------------------------------------------------------------
     # add nodes into cluster and set roles
 
     # simple check for enough nodes count
     # FIXME
+    assign_method = lab_config.get('assign_method', 'simple')
     if assign_method == 'hw_pin':
         should_be_nodes = len(lab_config['nodes'].keys())
     else:
@@ -589,6 +569,6 @@ if __name__ == '__main__':
                       'interfaces': upd_ifs}])
     LOG.info("StageX: END Assign network role to nic per node")
 
-    if START_DEPLOYMENT.lower() == 'true':
+    if settings.START_DEPLOYMENT.lower() == 'true':
         client.deploy_cluster_changes(cluster_id)
         LOG.info('Deployment started!')
