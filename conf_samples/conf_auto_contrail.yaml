@@ -1,12 +1,13 @@
 ---
 fuel-master: "10.109.0.2"
 assign_method: "simple"
+debug: true
 ######################################################################
 cluster:
   mode: "ha_compact"
   release_id: 2
   net_provider: "neutron"
-  net_segment_type: "vlan"
+  net_segment_type: "tun"
   name: "lab01-contrail"
 ######################################################################
 default_compute_one: &default_compute_one
@@ -42,6 +43,13 @@ attributes:
     assign_to_all_nodes: true
   provision:
     method: "image"
+plugins:
+  contrail:
+    enabled: true
+    version: 5.0.0
+    attributes:
+      dedicated_analytics_db: true
+
 nets:
   public:
     ip_ranges:
@@ -75,7 +83,6 @@ networking_parameters:
   vlan_range:
     - 3361
     - 3390
-  segmentation_type: "vlan"
 ######################################################################
 roller:
   puppy01:
@@ -89,7 +96,7 @@ roller:
       phys_nic_map: *default_compute_one
     roles:
       - controller
-    count: 1
+    count: 3
   puppy03:
     l3_ifaces:
       phys_nic_map: *default_compute_one
@@ -103,4 +110,6 @@ roller:
       - contrail-db
       - contrail-config
       - contrail-control
+      - contrail-analytics
+      - contrail-analytics-db
     count: 3

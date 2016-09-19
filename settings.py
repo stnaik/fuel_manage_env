@@ -1,4 +1,5 @@
 import os
+import yaml
 
 OPENSTACK_RELEASE_UBUNTU = 'ubuntu'
 
@@ -19,3 +20,6 @@ CLUSTER_CONFIG = os.environ.get("CLUSTER_CONFIG", "test_lab.yaml")
 START_DEPLOYMENT = os.environ.get("START_DEPLOYMENT", "false")
 # UPLOAD_DEPLOYMENT_INFO = os.environ.get("UPLOAD_DEPLOYMENT_INFO", "false")
 IPMI_CONFIGS = os.environ.get("IPMI_CONFIGS", "ipmi/netifnames.yaml")
+
+
+lab_config = yaml.load(open(CLUSTER_CONFIG))
