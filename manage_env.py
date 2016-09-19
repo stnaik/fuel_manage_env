@@ -152,16 +152,18 @@ def wait_free_nodes(lab_config, should_be, timeout=120, ):
             if node['cluster'] in [None, cluster_id] and node['status'] == 'discover':
                 actual_nodes_ids.append(node['id'])
         if len(actual_nodes_ids) < should_be:
-            LOG.info(
-                'Found {0} nodes in any status, from {1} needed. '
-                'Sleep for 10s..try {2} from {3}'.format(
-                    len(all_nodes), should_be, i, timeout))
+            LOG.info('Found {0} nodes in any status, from {1} needed. '
+                     'Sleep for 10s..try {2} from {3}'.format(len(all_nodes),
+                                                              should_be,
+                                                              i, timeout))
             time.sleep(10)
             if i == timeout:
                 LOG.error('Timeout awaiting nodes!'.format(
                     lab_config["cluster"]["name"]))
                 sys.exit(1)
         else:
+            LOG.info('Found {0} nodes in any status, from {1} needed. '
+                     'continue..'.format( len(all_nodes), should_be))
             break
     return actual_nodes_ids
 
@@ -228,30 +230,71 @@ def simple_pin_nodes_to_cluster(all_nodes, roller):
     :return:
     """
     nodes_data = []
-    ctrl_counter = 0
-    compute_counter = 0
+    role_counter = {}
+    # ctrl_counter = 0
+    # compute_counter = 0
     LOG.info('Simple(random) node assign to cluster chosen')
     for node in all_nodes:
-        if node['cluster'] is None and (
-                    ctrl_counter < roller['controller']['count']):
-            node_data = {api_cluster_id: cluster_id,
-                         'id': node['id'],
-                         'pending_addition': True,
-                         'pending_roles': roller['controller']['roles'],
-                         'name': check_for_name(node['mac'])
-                         }
-            ctrl_counter += 1
-            nodes_data.append(node_data)
-        elif node['cluster'] is None and (
-                    compute_counter < roller['compute']['count']):
-            node_data = {api_cluster_id: cluster_id,
-                         'id': node['id'],
-                         'pending_addition': True,
-                         'pending_roles': roller['compute']['roles'],
-                         'name': check_for_name(node['mac'])
-                         }
-            compute_counter += 1
-            nodes_data.append(node_data)
+        if node['cluster'] is not None:
+            LOG.debug('Skip reserved node: {0}{1}'.format(node['name'], node['id']))
+            continue
+        LOG.debug("Get free node: {0}".format(node['name']))
+        for node_label in roller.keys():
+            if not roller[node_label].get('assigned_names'):
+                # here we save assigned names for nodes
+                # and use this for network interface configuration later
+                roller[node_label]['assigned_names'] = []
+
+            if role_counter.get(node_label) is None:
+                # initialize counter for this role
+                role_counter[node_label] = 0
+
+            if role_counter[node_label] < roller[node_label]['count']:
+                LOG.debug("Assign node with label {0}. "
+                          "Assigned with this label: {1} from {2}.".format(
+                    node_label,
+                    role_counter[node_label],
+                    roller[node_label]['count']))
+
+
+                node_name = check_for_name(node['mac'])
+                node_data = {api_cluster_id: cluster_id,
+                             'id': node['id'],
+                             'pending_addition': True,
+                             'pending_roles': roller[node_label]['roles'],
+                             'name': node_name,
+                             }
+                roller[node_label]['assigned_names'].append(node_name)
+                role_counter[node_label] += 1
+                LOG.info('Add node {0} new name: {1}, roles: {2}'.format(
+                    node['name'],
+                    node_name,
+                    roller[node_label]['roles'],
+                ))
+                nodes_data.append(node_data)
+                # break to the next naigun node
+                break
+
+        # if node['cluster'] is None and (
+        #             ctrl_counter < roller['controller']['count']):
+        #     node_data = {api_cluster_id: cluster_id,
+        #                  'id': node['id'],
+        #                  'pending_addition': True,
+        #                  'pending_roles': roller['controller']['roles'],
+        #                  'name': check_for_name(node['mac'])
+        #                  }
+        #     ctrl_counter += 1
+        #     nodes_data.append(node_data)
+        # elif node['cluster'] is None and (
+        #             compute_counter < roller['compute']['count']):
+        #     node_data = {api_cluster_id: cluster_id,
+        #                  'id': node['id'],
+        #                  'pending_addition': True,
+        #                  'pending_roles': roller['compute']['roles'],
+        #                  'name': check_for_name(node['mac'])
+        #                  }
+        #     compute_counter += 1
+        #     nodes_data.append(node_data)
     return nodes_data
 
 
@@ -267,12 +310,24 @@ def simple_pin_nw_to_node(node_orig, node_ifs, roller):
     # TODO merge *_pin_nw_to_node in one
     nw_ids_dict = {network['name']: network['id'] for network in
                    client.get_networks(cluster_id)['networks']}
-    role = []
-    if 'compute' in node['pending_roles']:
-        role = 'compute'
-    elif 'controller' in node['pending_roles']:
-        role = 'controller'
-    l3_ifaces = roller[role]['l3_ifaces']
+    # role = []
+    # if 'compute' in node['pending_roles']:
+    #     role = 'compute'
+    # elif 'controller' in node['pending_roles']:
+    #     role = 'controller'
+
+    for node_label, node_conf in roller.items():
+        LOG.debug('Check node {0} in {1} - {2}'.format(
+            node['name'], node_label, node_conf['assigned_names']
+        ))
+        if node['name'] in node_conf['assigned_names']:
+            label = node_label
+            break
+    else:
+        LOG.error('Node {0} not found'.format(node['name']))
+        sys.exit(1)
+
+    l3_ifaces = roller[label]['l3_ifaces']
     phys_nic_map = l3_ifaces.get('phys_nic_map', None)
     virt_nic_map = l3_ifaces.get('virt_nic_map', None)
 
@@ -454,20 +509,20 @@ def strict_pin_node_to_cluster(node_orig, lab_config):
                 node['id'], cluster['cluster_id'], cluster['name']))
         return None
 
-########################################################################################################################
-########################################################################################################################
+#############################################################################
+#############################################################################
 
 if __name__ == '__main__':
     import ipdb; ipdb.set_trace()
     # pydevd.settrace('localhost', port=56342, stdoutToServer=True, stderrToServer=True)
 
-    #-------------------------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------
     # remove cluster, and create new
     remove_env(lab_config["fuel-master"], lab_config["cluster"]["name"])
     LOG.info('Creating cluster with:{0}'.format(pprinter.pformat(lab_config["cluster"])))
     client.create_cluster(data=lab_config["cluster"])
 
-    #-------------------------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------
     # update network and attributes
     cluster_id = client.get_cluster_id(lab_config["cluster"]["name"])
     if cluster_id is None:
@@ -521,8 +576,9 @@ if __name__ == '__main__':
         client.update_network(cluster_id, networking_parameters=cluster_net[
             "networking_parameters"], networks=cluster_net["networks"])
 
-    #-------------------------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------
     # add nodes into cluster and set roles
+    #------------------------------------------------------------------------
 
     # simple check for enough nodes count
     # FIXME
@@ -530,11 +586,19 @@ if __name__ == '__main__':
     if assign_method == 'hw_pin':
         should_be_nodes = len(lab_config['nodes'].keys())
     else:
-        should_be_nodes = lab_config['roller']['controller']['count'] + \
-                          lab_config['roller']['compute']['count']
+        # should_be_nodes = lab_config['roller']['controller']['count'] + \
+        #                   lab_config['roller']['compute']['count']
+
+        # get all node type couts
+        counts = [node['count'] for node in lab_config['roller'].values()]
+        # and summarize them
+        should_be_nodes = reduce(lambda res, x: res+x, counts, 0)
+
     wait_free_nodes(lab_config, should_be_nodes)
 
+    #------------------------------------------------------------------------
     # add nodes to cluster
+    #------------------------------------------------------------------------
     LOG.info("StageX:START Assign nodes to cluster")
     if assign_method == 'hw_pin':
         while len(client.list_cluster_nodes(cluster_id)) < should_be_nodes:
@@ -549,24 +613,26 @@ if __name__ == '__main__':
                                                         lab_config['roller']))
     LOG.info("StageX: END Assign nodes to cluster")
 
+    #------------------------------------------------------------------------
     # assign\create network role to nic per node
+    #------------------------------------------------------------------------
     LOG.info("StageX: Assign network role to nic per node")
     if assign_method == 'hw_pin':
         for node in client.list_cluster_nodes(cluster_id):
-            upd_ifs = strict_pin_nw_to_node(node, client.get_node_interfaces(
-                node['id']), lab_config)
+            upd_ifs = strict_pin_nw_to_node(node,
+                                            client.get_node_interfaces(node['id']),
+                                            lab_config)
             if upd_ifs:
-                client.put_node_interfaces(
-                    [{'id': node['id'],
-                      'interfaces': upd_ifs}])
+                client.put_node_interfaces([{'id': node['id'],
+                                             'interfaces': upd_ifs}])
     else:
         for node in client.list_cluster_nodes(cluster_id):
-            upd_ifs = simple_pin_nw_to_node(node, client.get_node_interfaces(
-                node['id']), lab_config.get('roller'))
+            upd_ifs = simple_pin_nw_to_node(node,
+                                            client.get_node_interfaces(node['id']),
+                                            lab_config.get('roller'))
             if upd_ifs:
-                client.put_node_interfaces(
-                    [{'id': node['id'],
-                      'interfaces': upd_ifs}])
+                client.put_node_interfaces([{'id': node['id'],
+                                             'interfaces': upd_ifs}])
     LOG.info("StageX: END Assign network role to nic per node")
 
     if settings.START_DEPLOYMENT.lower() == 'true':

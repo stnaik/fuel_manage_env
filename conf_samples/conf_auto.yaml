@@ -1,0 +1,106 @@
+---
+fuel-master: "10.109.0.2"
+assign_method: "simple"
+######################################################################
+cluster:
+  mode: "ha_compact"
+  release_id: 2
+  net_provider: "neutron"
+  net_segment_type: "vlan"
+  name: "lab01-contrail"
+######################################################################
+default_compute_one: &default_compute_one
+  enp0s3:
+    type: "ether"
+    assigned_networks:
+      - "fuelweb_admin"
+  enp0s4:
+    type: "ether"
+    assigned_networks:
+      - "management"
+  enp0s5:
+    type: "ether"
+    assigned_networks:
+      - "public"
+  enp0s6:
+    type: "ether"
+    assigned_networks:
+      - "storage"
+  enp0s7:
+    type: "ether"
+    assigned_networks:
+      - "private"
+
+attributes:
+  additional_components:
+    sahara: false
+    murano: false
+    ceilometer: false
+  common:
+    libvirt_type: "kvm"
+  public_network_assignment:
+    assign_to_all_nodes: true
+  provision:
+    method: "image"
+nets:
+  public:
+    ip_ranges:
+      -
+        - "172.16.43.228"
+        - "172.16.43.234"
+    cidr: "172.16.43.128/25"
+    vlan_start: 387
+    gateway: "172.16.43.129"
+  management:
+    ip_ranges:
+      -
+        - "10.20.14.10"
+        - "10.20.14.50"
+    cidr: "10.20.14.0/24"
+    vlan_start: 386
+  storage:
+    ip_ranges:
+      -
+        - "10.30.14.10"
+        - "10.30.14.50"
+    cidr: "10.30.14.0/24"
+    vlan_start: 388
+networking_parameters:
+  floating_ranges:
+    -
+      - "172.16.43.235"
+      - "172.16.43.254"
+  internal_cidr: "192.168.111.0/24"
+  internal_gateway: "192.168.111.1"
+  vlan_range:
+    - 3361
+    - 3390
+  segmentation_type: "vlan"
+######################################################################
+roller:
+  puppy01:
+    l3_ifaces:
+      phys_nic_map: *default_compute_one
+    roles:
+      - compute
+    count: 1
+  puppy02:
+    l3_ifaces:
+      phys_nic_map: *default_compute_one
+    roles:
+      - controller
+    count: 1
+  puppy03:
+    l3_ifaces:
+      phys_nic_map: *default_compute_one
+    roles:
+      - cinder
+    count: 1
+  puppy-contrail:
+    l3_ifaces:
+      phys_nic_map: *default_compute_one
+    roles:
+      - contrail-db
+      - contrail-config
+      - contrail-control
+    count: 3
