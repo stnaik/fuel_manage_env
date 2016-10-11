@@ -5,6 +5,7 @@ import sys
 import yaml
 import time
 import pprint
+import re
 
 from helpers.nailgun import NailgunClient
 from helpers.tools import logger as LOG
@@ -13,12 +14,20 @@ from settings import KEYSTONE_CREDS
 from settings import IPMI_CONFIGS
 from settings import START_DEPLOYMENT
 from settings import CLUSTER_CONFIG
+import paramiko
+from proboscis.asserts import assert_true, assert_equal
 
 
 class ClusterManager:
-    def __init__(self, fuel_master_addr, keystone_creds):
+    def __init__(self, fuel_master_addr, fuel_username, fuel_password, keystone_creds):
         self.nailgun_client = NailgunClient(fuel_master_addr,
                                             keystone_creds=keystone_creds)
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.connect(fuel_master_addr,22,fuel_username,fuel_password)
+
+    def __del__(self):
+        self.client.close()
 
     @property
     def fuel_release(self):
@@ -201,6 +210,17 @@ class ClusterManager:
             plugin_data[path[-1]] = value
         self.nailgun_client.update_cluster_attributes(cluster_id, attr)
 
+    def upload_file(self, ip, username, password, localpath, remotepath):
+    	sftp = self.client.open_sftp()
+    	#sftp.put(localpath, os.path.join(remotepath, 'plugin.rpm'))
+    	sftp.put(localpath,remotepath) 
+        sftp.close()
+    	return
+
+    def remote_execute_cmd(self, ip, username, password, cmd):
+    	stdin, stdout, stderr = self.client.exec_command(cmd)
+    	#assert_equal(stderr, '', 'Plugin install failed with this message: ' +stderr.read())
+    	return stdout.read()
 
 ##############################################################################
 def wait_free_nodes(client, node_count, timeout=120):
@@ -585,8 +605,16 @@ def strict_pin_node_to_cluster(node_orig, lab_config):
                 node['id'], cluster['cluster_id'], cluster['name']))
         return None
 
-
-
+def parsePluginInfo(input):
+    plugin_info = {'name':'', 'version':''}
+    out = input.split('\n')
+    #obj = re.search('id \|\s+(\w+)\s+\|\s+(\w+)(.*)', out[0])
+    obj = re.search('\d+\s+\|\s+(\w+)\s+\|\s+(\d+(\.\d+)*)(.*)', out[2])
+    if obj:
+        plugin_info['name'] = obj.group(1)
+        plugin_info['version'] = obj.group(2)
+    return plugin_info
+    
 #############################################################################
 #############################################################################
 
@@ -596,7 +624,7 @@ if __name__ == '__main__':
     # FIXME: remove this or change to __debug__
     test_mode = lab_config.get('debug', False)
 
-    cluster_manager = ClusterManager(lab_config['fuel-master'],
+    cluster_manager = ClusterManager(lab_config['fuel-master'], lab_config["fuel-master-username"], lab_config["fuel-master-password"],
                                      KEYSTONE_CREDS)
 
     #########################################################################
@@ -615,6 +643,51 @@ if __name__ == '__main__':
     cluster_manager.cluster_create(lab_config["cluster"])
 
     #########################################################################
+    #copy plugin to the master node
+    LOG.info('Copying the plugin to the fuel master')
+    cluster_manager.upload_file(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                lab_config["fuel-master-password"], lab_config["plugin"], '/tmp/plugin.rpm')          
+
+    ########################################################################
+    #Uninstall the existing plugin
+    LOG.info('Check if there is already a plugin installed')
+    cmd = 'fuel plugins'
+    out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                             lab_config["fuel-master-password"], cmd)
+    if out:
+        plugin_info = parsePluginInfo(out)
+        if plugin_info['name']:
+            cmd = 'fuel plugins --remove %s==%s' %(plugin_info['name'], plugin_info['version'])
+            out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                                                     lab_config["fuel-master-password"], cmd)
+            if "Plugin %s==%s was successfully removed" % (plugin_info['name'], plugin_info['version']) in out:
+                 LOG.info('Existing plugin "%s=%s" uninstalled' % (plugin_info['name'], plugin_info['version']))
+            else:
+                LOG.info('Some error while uninstalling the existing plugin.Deployment cannot proceed. Exiting!!!!!')
+                exit()
+        else:
+            LOG.info('No plugin installed. Proceeding with the deployment')
+    
+    ##Install the plugin
+    LOG.info('Installing the Fuel Contrail Plugin on the Fuel Master')
+    cmd = 'fuel plugins --install /tmp/plugin.rpm'
+    out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                             lab_config["fuel-master-password"], cmd)
+    if out:
+        LOG.info("%s" % out)
+    #################################################################################
+    ##Copy the Juniper Contrail Install Package.
+    LOG.info('Copying the Juniper COntrail package to the Fuel Master')
+    cluster_manager.upload_file(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                lab_config["fuel-master-password"], lab_config["contrail-package"], lab_config["plugin_path"]+'contrail-install-packages.deb')
+    ########################################################################
+    ###Install Juniper contrail packageA
+    LOG.info('Installing the Juniper contrail Package')
+    cmd = "cd " + lab_config["plugin_path"] + " && ./install.sh"
+    out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                             lab_config["fuel-master-password"], cmd)
+    LOG.info("Package installed")
+    ########################################################################
     # update network and attributes
     #########################################################################
     cluster_id = cluster_manager.cluster_id(lab_config["cluster"]["name"])
