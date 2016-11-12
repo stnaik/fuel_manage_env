@@ -222,6 +222,13 @@ class ClusterManager:
     	#assert_equal(stderr, '', 'Plugin install failed with this message: ' +stderr.read())
     	return stdout.read()
 
+    def install_plugin(self, ip, username, password, plugin):
+        LOG.info('Installing the Fuel Contrail Plugin on the Fuel Master')
+        cmd = 'fuel plugins --install %s' % plugin 
+        out = cluster_manager.remote_execute_cmd(ip, username, pasword, cmd)
+        if out:
+            LOG.info("%s" % out)
+
 ##############################################################################
 def wait_free_nodes(client, node_count, timeout=120):
     """Wait for 'node_count' free nodes awailable.
@@ -623,6 +630,10 @@ if __name__ == '__main__':
     # debug (don't use it!)
     # FIXME: remove this or change to __debug__
     test_mode = lab_config.get('debug', False)
+    PLUGIN_VERSION = os.environ.get("plugin_version")
+    PLUGIN_PATH = os.environ.get("plugin_path")
+    CONTRAIL_PACKAGE = os.environ.get("contrail_package")
+    PLUGIN = os.environ.get("plugin")
 
     cluster_manager = ClusterManager(lab_config['fuel-master'], lab_config["fuel-master-username"], lab_config["fuel-master-password"],
                                      KEYSTONE_CREDS)
@@ -646,7 +657,7 @@ if __name__ == '__main__':
     #copy plugin to the master node
     LOG.info('Copying the plugin to the fuel master')
     cluster_manager.upload_file(lab_config["fuel-master"], lab_config["fuel-master-username"],
-                lab_config["fuel-master-password"], lab_config["plugin"], '/tmp/plugin.rpm')          
+                lab_config["fuel-master-password"], PLUGIN, '/tmp/plugin.rpm')          
 
     ########################################################################
     #Uninstall the existing plugin
@@ -657,33 +668,34 @@ if __name__ == '__main__':
     if out:
         plugin_info = parsePluginInfo(out)
         if plugin_info['name']:
-            cmd = 'fuel plugins --remove %s==%s' %(plugin_info['name'], plugin_info['version'])
-            out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
-                                                     lab_config["fuel-master-password"], cmd)
-            if "Plugin %s==%s was successfully removed" % (plugin_info['name'], plugin_info['version']) in out:
-                 LOG.info('Existing plugin "%s=%s" uninstalled' % (plugin_info['name'], plugin_info['version']))
+            if plugin_info['version'] == PLUGIN_VERSION:
+                LOG.info('Required plugin version installed in the Master node, skipping the uninstall') 
             else:
-                LOG.info('Some error while uninstalling the existing plugin.Deployment cannot proceed. Exiting!!!!!')
-                exit()
+                cmd = 'fuel plugins --remove %s==%s' %(plugin_info['name'], plugin_info['version'])
+                out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                                                         lab_config["fuel-master-password"], cmd)
+                if "Plugin %s==%s was successfully removed" % (plugin_info['name'], plugin_info['version']) in out:
+                     LOG.info('Existing plugin "%s=%s" uninstalled' % (plugin_info['name'], plugin_info['version']))
+                     ##Install the plugin
+                     cluster_manager.install_plugin(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                                                         lab_config["fuel-master-password"], '/tmp/plugin.rpm')
+                else:
+                    LOG.info('Some error while uninstalling the existing plugin.Deployment cannot proceed. Exiting!!!!!')
+                    exit()
         else:
             LOG.info('No plugin installed. Proceeding with the deployment')
-    
-    ##Install the plugin
-    LOG.info('Installing the Fuel Contrail Plugin on the Fuel Master')
-    cmd = 'fuel plugins --install /tmp/plugin.rpm'
-    out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
-                             lab_config["fuel-master-password"], cmd)
-    if out:
-        LOG.info("%s" % out)
+            cluster_manager.install_plugin(lab_config["fuel-master"], lab_config["fuel-master-username"],
+                                           lab_config["fuel-master-password"], '/tmp/plugin.rpm')
+            ##Install the plugin
     #################################################################################
     ##Copy the Juniper Contrail Install Package.
     LOG.info('Copying the Juniper COntrail package to the Fuel Master')
     cluster_manager.upload_file(lab_config["fuel-master"], lab_config["fuel-master-username"],
-                lab_config["fuel-master-password"], lab_config["contrail-package"], lab_config["plugin_path"]+'contrail-install-packages.deb')
+                lab_config["fuel-master-password"], CONTRAIL_PACKAGE, PLUGIN_PATH +'contrail-install-packages.deb')
     ########################################################################
     ###Install Juniper contrail packageA
     LOG.info('Installing the Juniper contrail Package')
-    cmd = "cd " + lab_config["plugin_path"] + " && ./install.sh"
+    cmd = "cd " + PLUGIN_PATH + " && ./install.sh"
     out = cluster_manager.remote_execute_cmd(lab_config["fuel-master"], lab_config["fuel-master-username"],
                              lab_config["fuel-master-password"], cmd)
     LOG.info("Package installed")
@@ -703,7 +715,7 @@ if __name__ == '__main__':
         if plugin_attrs['enabled']:
             cluster_manager.activate_plugin(cluster_id,
                                             plugin_name,
-                                            plugin_attrs['version'],
+                                            PLUGIN_VERSION,
                                             **plugin_attrs['attributes'])
 
     #########################################################################

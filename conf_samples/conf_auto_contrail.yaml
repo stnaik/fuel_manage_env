@@ -2,10 +2,6 @@
 fuel-master: "10.87.65.146"
 fuel-master-username: "root"
 fuel-master-password: "c0ntrail123"
-plugin_version: "5.0.0"
-plugin_path: "/var/www/nailgun/plugins/contrail-5.0/"
-contrail-package: "/github-build/R3.1/25/ubuntu-14-04/mitaka/contrail-install-packages_3.1.0.0-25~mitaka_all.deb"
-plugin: "/root/contrail-5.0-5.0.0-1-594.noarch.rpm"
 assign_method: "hw_pin"
 debug: true
 ######################################################################
@@ -14,9 +10,9 @@ cluster:
   release_id: 2
   net_provider: "neutron"
   net_segment_type: "tun"
-  name: "lab01-contrail"
+  name: "test-contrail"
 ######################################################################
-default_compute_phys: &default_compute_phys
+default_compute_phys: &default_compute_one_phys
   ens2f1:
     type: "ether"
     assigned_networks:
@@ -24,7 +20,7 @@ default_compute_phys: &default_compute_phys
       - "management"
       - "storage"
       - "public"
-default_compute_virt: &default_compute_virt
+default_compute_virt: &default_compute_one_virt
   bond0:
     type: "bond"
     assigned_networks:
@@ -41,7 +37,32 @@ default_compute_virt: &default_compute_virt
       type__: "linux"
       xmit_hash_policy: "layer2"
 
-default_controller_phys: &default_controller_phys
+default_compute_phys: &default_compute_two_phys
+  eno1:
+    type: "ether"
+    assigned_networks:
+      - "fuelweb_admin"
+      - "management"
+      - "storage"
+      - "public"
+default_compute_virt: &default_compute_two_virt
+  bond0:
+    type: "bond"
+    assigned_networks:
+      - "private"
+    slaves:
+      -
+        name: "ens2f0"
+      -
+        name: "ens2f1"
+    mode: "802.3ad"
+    bond_properties:
+      lacp_rate: "slow"
+      mode: "802.3ad"
+      type__: "linux"
+      xmit_hash_policy: "layer2"
+
+default_controller_phys: &default_controller_one_phys
   ens2f1:
     type: "ether"
     assigned_networks:
@@ -50,6 +71,19 @@ default_controller_phys: &default_controller_phys
       - "storage"
       - "public"
   ens2f0:
+    type: "ether"
+    assigned_networks:
+      - "private"
+
+default_controller_phys: &default_controller_two_phys
+  enp4s0f1:
+    type: "ether"
+    assigned_networks:
+      - "fuelweb_admin"
+      - "management"
+      - "storage"
+      - "public"
+  enp4s0f0:
     type: "ether"
     assigned_networks:
       - "private"
@@ -68,12 +102,11 @@ attributes:
 plugins:
   contrail:
     enabled: true
-    version: 4.0.1
     attributes:
       contrail_global_dpdk: True
-      contrail_global_sriov: True
+      #contrail_global_sriov: True
       dpdk_on_vf: False
-      #dedicated_analytics_db: False
+      dedicated_analytics_db: True
 
 nets:
   public:
@@ -117,26 +150,30 @@ networking_parameters:
 #    - 3390
 ######################################################################
 nodes:
-  cz0001.com:
+  computes:
     l3_ifaces:
-      phys_nic_map: *default_compute_phys
-      virt_nic_map: *default_compute_virt
+      phys_nic_map: *default_compute_two_phys
+      virt_nic_map: *default_compute_two_virt
     roles:
       - compute
     count: 1
-  cz0002.com:
+  openstack-controllers:
     l3_ifaces:
-      phys_nic_map: *default_controller_phys
+      phys_nic_map: *default_controller_two_phys
     roles:
       - controller
     count: 1
-  cz0003.com:
+  contrail-controller:
     l3_ifaces:
-      phys_nic_map: *default_controller_phys
+      phys_nic_map: *default_controller_one_phys
     roles:
-      - contrail-db
-      - contrail-config
-      - contrail-control
+      - contrail-controller
       - contrail-analytics
-#      - contrail-analytics-db
+    count: 1
+  contrail-analytics:
+    l3_ifaces:
+      phys_nic_map: *default_controller_one_phys
+    roles:
+      - contrail-analytics
+      - contrail-analytics-db
     count: 1
