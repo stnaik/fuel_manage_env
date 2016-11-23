@@ -106,7 +106,7 @@ plugins:
       contrail_global_dpdk: True
       #contrail_global_sriov: True
       dpdk_on_vf: False
-      dedicated_analytics_db: True
+      #dedicated_analytics_db: True
 
 nets:
   public:
